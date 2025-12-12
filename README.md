@@ -1,1 +1,0 @@
-# ligas-pro-app
