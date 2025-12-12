@@ -1,9 +1,10 @@
 import { Colors } from '@/constants/Colors';
+import { useAuth } from '@/context/AuthContext';
 import { useColorScheme } from '@/hooks/useColorScheme';
-import { League, supabase, Tournament } from '@/lib/supabase';
+import { League, supabase } from '@/lib/supabase';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import { useFocusEffect, useRouter } from 'expo-router';
+import React, { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -14,102 +15,92 @@ import {
   View,
 } from 'react-native';
 
-interface TournamentWithLeague extends Tournament {
-  leagues: League;
-}
-
-export default function TorneosScreen() {
-  const [tournaments, setTournaments] = useState<TournamentWithLeague[]>([]);
+export default function LigasScreen() {
+  const [leagues, setLeagues] = useState<League[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const router = useRouter();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
+  const { user } = useAuth();
 
-  const fetchTournaments = async () => {
+  const fetchLeagues = async () => {
     try {
       const { data, error } = await supabase
-        .from('tournaments')
+        .from('leagues')
         .select(`
           *,
-          leagues (*)
+          owner:profiles(*)
         `)
+        .eq('is_public', true)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setTournaments(data || []);
+      setLeagues(data || []);
     } catch (error) {
-      console.error('Error fetching tournaments:', error);
+      console.error('Error fetching leagues:', error);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
   };
 
-  useEffect(() => {
-    fetchTournaments();
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      fetchLeagues();
+    }, [])
+  );
 
   const onRefresh = () => {
     setRefreshing(true);
-    fetchTournaments();
+    fetchLeagues();
   };
 
-  const renderTournament = ({ item }: { item: TournamentWithLeague }) => (
+  const renderLeague = ({ item }: { item: League }) => (
     <TouchableOpacity
-      style={[styles.card, { backgroundColor: colors.background }]}
-      onPress={() => router.push(`/tournament/${item.id}`)}
+      style={[styles.card, { backgroundColor: colors.card }]}
+      onPress={() => router.push(`/league/${item.id}`)}
+      activeOpacity={0.7}
     >
       <View style={styles.cardHeader}>
         <View style={[styles.iconContainer, { backgroundColor: colors.tint }]}>
-          <Ionicons name="trophy" size={24} color="white" />
+          <Ionicons name="football" size={28} color="white" />
         </View>
         <View style={styles.cardInfo}>
-          <Text style={[styles.tournamentName, { color: colors.text }]}>
+          <Text style={[styles.leagueName, { color: colors.text }]} numberOfLines={1}>
             {item.name}
           </Text>
-          <Text style={[styles.leagueName, { color: colors.icon }]}>
-            {item.leagues?.name || 'Liga desconocida'}
-          </Text>
-        </View>
-        <View style={[
-          styles.statusBadge,
-          { backgroundColor: item.is_active ? '#4CAF50' : '#9E9E9E' }
-        ]}>
-          <Text style={styles.statusText}>
-            {item.is_active ? 'Activo' : 'Finalizado'}
-          </Text>
+          {item.location && (
+            <View style={styles.locationRow}>
+              <Ionicons name="location-outline" size={14} color={colors.icon} />
+              <Text style={[styles.locationText, { color: colors.icon }]} numberOfLines={1}>
+                {item.location}
+              </Text>
+            </View>
+          )}
         </View>
       </View>
 
-      <View style={styles.cardDetails}>
-        {item.leagues?.location && (
-          <View style={styles.detailRow}>
-            <Ionicons name="location-outline" size={16} color={colors.icon} />
-            <Text style={[styles.detailText, { color: colors.icon }]}>
-              {item.leagues.location}
-            </Text>
-          </View>
-        )}
-        {item.start_date && (
-          <View style={styles.detailRow}>
-            <Ionicons name="calendar-outline" size={16} color={colors.icon} />
-            <Text style={[styles.detailText, { color: colors.icon }]}>
-              {new Date(item.start_date).toLocaleDateString('es-ES', {
-                day: 'numeric',
-                month: 'short',
-                year: 'numeric'
-              })}
-            </Text>
-          </View>
-        )}
-      </View>
-
-      <View style={styles.cardFooter}>
-        <Text style={[styles.viewDetails, { color: colors.tint }]}>
-          Ver detalles
+      {item.description && (
+        <Text
+          style={[styles.description, { color: colors.icon }]}
+          numberOfLines={2}
+        >
+          {item.description}
         </Text>
-        <Ionicons name="chevron-forward" size={20} color={colors.tint} />
+      )}
+
+      <View style={[styles.cardFooter, { borderTopColor: colors.border }]}>
+        <View style={styles.ownerInfo}>
+          <Ionicons name="person-circle-outline" size={16} color={colors.icon} />
+          <Text style={[styles.ownerText, { color: colors.icon }]}>
+            {item.owner?.username || 'Organizador'}
+          </Text>
+        </View>
+        <View style={styles.viewMore}>
+          <Text style={[styles.viewMoreText, { color: colors.tint }]}>Ver liga</Text>
+          <Ionicons name="chevron-forward" size={18} color={colors.tint} />
+        </View>
       </View>
     </TouchableOpacity>
   );
@@ -119,7 +110,7 @@ export default function TorneosScreen() {
       <View style={[styles.centered, { backgroundColor: colors.background }]}>
         <ActivityIndicator size="large" color={colors.tint} />
         <Text style={[styles.loadingText, { color: colors.text }]}>
-          Cargando torneos...
+          Cargando ligas...
         </Text>
       </View>
     );
@@ -127,20 +118,42 @@ export default function TorneosScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      {tournaments.length === 0 ? (
+      {/* FAB para crear liga - Solo usuarios logueados */}
+      {user && (
+        <TouchableOpacity
+          style={[styles.fab, { backgroundColor: colors.tint }]}
+          onPress={() => router.push('/league/create')}
+        >
+          <Ionicons name="add" size={28} color="white" />
+        </TouchableOpacity>
+      )}
+
+      {leagues.length === 0 ? (
         <View style={styles.emptyState}>
-          <Ionicons name="trophy-outline" size={64} color={colors.icon} />
+          <Ionicons name="football-outline" size={64} color={colors.icon} />
           <Text style={[styles.emptyTitle, { color: colors.text }]}>
-            No hay torneos disponibles
+            No hay ligas disponibles
           </Text>
           <Text style={[styles.emptySubtitle, { color: colors.icon }]}>
-            Los torneos aparecerán aquí cuando se creen
+            {user
+              ? 'Sé el primero en crear una liga para tu barrio'
+              : 'Inicia sesión para crear tu propia liga'
+            }
           </Text>
+          {user && (
+            <TouchableOpacity
+              style={[styles.createButton, { backgroundColor: colors.tint }]}
+              onPress={() => router.push('/league/create')}
+            >
+              <Ionicons name="add" size={20} color="white" />
+              <Text style={styles.createButtonText}>Crear Liga</Text>
+            </TouchableOpacity>
+          )}
         </View>
       ) : (
         <FlatList
-          data={tournaments}
-          renderItem={renderTournament}
+          data={leagues}
+          renderItem={renderLeague}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.listContainer}
           refreshControl={
@@ -172,77 +185,92 @@ const styles = StyleSheet.create({
   },
   listContainer: {
     padding: 16,
+    paddingBottom: 100,
   },
   card: {
     borderRadius: 16,
     padding: 16,
-    marginBottom: 16,
+    marginBottom: 14,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.08,
     shadowRadius: 8,
-    elevation: 4,
+    elevation: 3,
   },
   cardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
   },
   iconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 12,
+    width: 52,
+    height: 52,
+    borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
   },
   cardInfo: {
     flex: 1,
-    marginLeft: 12,
+    marginLeft: 14,
   },
-  tournamentName: {
+  leagueName: {
     fontSize: 18,
     fontWeight: '700',
   },
-  leagueName: {
-    fontSize: 14,
-    marginTop: 2,
-  },
-  statusBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  statusText: {
-    color: 'white',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  cardDetails: {
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#E0E0E0',
-  },
-  detailRow: {
+  locationRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 8,
+    marginTop: 4,
+    gap: 4,
   },
-  detailText: {
-    marginLeft: 8,
+  locationText: {
+    fontSize: 13,
+    flex: 1,
+  },
+  description: {
     fontSize: 14,
+    marginTop: 12,
+    lineHeight: 20,
   },
   cardFooter: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'flex-end',
-    marginTop: 16,
-    paddingTop: 12,
+    justifyContent: 'space-between',
+    marginTop: 14,
+    paddingTop: 14,
     borderTopWidth: 1,
-    borderTopColor: '#E0E0E0',
   },
-  viewDetails: {
+  ownerInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  ownerText: {
+    fontSize: 13,
+  },
+  viewMore: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  viewMoreText: {
     fontSize: 14,
     fontWeight: '600',
+  },
+  fab: {
+    position: 'absolute',
+    bottom: 24,
+    right: 24,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 8,
+    zIndex: 100,
   },
   emptyState: {
     flex: 1,
@@ -256,8 +284,22 @@ const styles = StyleSheet.create({
     marginTop: 16,
   },
   emptySubtitle: {
-    fontSize: 16,
+    fontSize: 15,
     textAlign: 'center',
     marginTop: 8,
+  },
+  createButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 12,
+    marginTop: 24,
+    gap: 8,
+  },
+  createButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });

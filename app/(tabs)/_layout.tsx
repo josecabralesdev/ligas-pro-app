@@ -3,53 +3,47 @@ import { Tabs } from 'expo-router';
 import React from 'react';
 import { Platform } from 'react-native';
 
-import { HapticTab } from '@/components/HapticTab';
-import TabBarBackground from '@/components/ui/TabBarBackground';
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
+  const colors = Colors[colorScheme ?? 'light'];
 
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
+        tabBarActiveTintColor: colors.tint,
+        tabBarInactiveTintColor: colors.tabIconDefault,
         headerShown: true,
-        tabBarButton: HapticTab,
-        tabBarBackground: TabBarBackground,
-        tabBarStyle: Platform.select({
-          ios: {
-            position: 'absolute',
-          },
-          default: {},
-        }),
+        headerStyle: { backgroundColor: colors.card },
+        headerTintColor: colors.text,
+        tabBarStyle: {
+          backgroundColor: colors.card,
+          borderTopColor: colors.border,
+          ...Platform.select({
+            ios: { position: 'absolute' },
+            default: {},
+          }),
+        },
       }}>
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Torneos',
+          title: 'Ligas',
           headerTitle: '⚽ Ligas Pro',
-          tabBarIcon: ({ color, focused }) => (
-            <Ionicons
-              name={focused ? 'trophy' : 'trophy-outline'}
-              size={24}
-              color={color}
-            />
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="football" size={size} color={color} />
           ),
         }}
       />
       <Tabs.Screen
         name="equipos"
         options={{
-          title: 'Equipos',
-          headerTitle: 'Equipos',
-          tabBarIcon: ({ color, focused }) => (
-            <Ionicons
-              name={focused ? 'people' : 'people-outline'}
-              size={24}
-              color={color}
-            />
+          title: 'Mis Ligas',
+          headerTitle: 'Mis Ligas',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="trophy" size={size} color={color} />
           ),
         }}
       />
@@ -58,12 +52,8 @@ export default function TabLayout() {
         options={{
           title: 'Perfil',
           headerTitle: 'Mi Perfil',
-          tabBarIcon: ({ color, focused }) => (
-            <Ionicons
-              name={focused ? 'person' : 'person-outline'}
-              size={24}
-              color={color}
-            />
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="person" size={size} color={color} />
           ),
         }}
       />

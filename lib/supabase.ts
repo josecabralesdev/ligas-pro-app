@@ -5,14 +5,10 @@ import 'react-native-url-polyfill/auto';
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!;
 
-// Validación para desarrollo
 if (!supabaseUrl || !supabaseAnonKey) {
   console.error('Missing Supabase environment variables');
-  console.log('EXPO_PUBLIC_SUPABASE_URL:', supabaseUrl);
-  console.log('EXPO_PUBLIC_SUPABASE_ANON_KEY:', supabaseAnonKey ? 'Set' : 'Not set');
 }
 
-// Custom storage that works on both client and server
 const customStorage = {
   getItem: async (key: string): Promise<string | null> => {
     if (typeof window === 'undefined') {
@@ -55,7 +51,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   },
 });
 
-// Tipos para TypeScript
+// Tipos
 export type MatchStatus = 'programado' | 'en_curso' | 'finalizado' | 'cancelado';
 export type EventType = 'gol' | 'tarjeta_amarilla' | 'tarjeta_roja' | 'autogol';
 
@@ -76,6 +72,7 @@ export interface League {
   logo_url: string | null;
   is_public: boolean;
   created_at: string;
+  owner?: Profile;
 }
 
 export interface Tournament {
@@ -91,12 +88,15 @@ export interface Tournament {
 
 export interface Team {
   id: string;
+  league_id: string | null;
+  created_by: string | null;
   name: string;
   short_name: string | null;
   badge_url: string | null;
   contact_name: string | null;
   contact_phone: string | null;
   created_at: string;
+  leagues?: League;
 }
 
 export interface Player {
@@ -108,6 +108,7 @@ export interface Player {
   photo_url: string | null;
   is_captain: boolean;
   created_at: string;
+  teams?: Team;
 }
 
 export interface Match {
@@ -124,11 +125,13 @@ export interface Match {
   created_at: string;
   home_team?: Team;
   away_team?: Team;
+  tournaments?: Tournament;
 }
 
 export interface Standing {
   team_id: string;
   team_name: string;
+  league_id: string;
   tournament_id: string;
   played: number;
   points: number;

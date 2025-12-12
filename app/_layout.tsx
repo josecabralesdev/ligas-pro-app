@@ -1,3 +1,5 @@
+import { Colors } from '@/constants/Colors';
+import { AuthProvider } from '@/context/AuthContext';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { useFonts } from 'expo-font';
@@ -11,6 +13,8 @@ SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
+  const colors = Colors[colorScheme ?? 'light'];
+
   const [loaded] = useFonts({
     SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
   });
@@ -25,29 +29,28 @@ export default function RootLayout() {
     return null;
   }
 
+  const theme = colorScheme === 'dark' ? DarkTheme : DefaultTheme;
+  const customTheme = {
+    ...theme,
+    colors: {
+      ...theme.colors,
+      background: colors.background,
+      card: colors.card,
+      text: colors.text,
+      border: colors.border,
+      primary: colors.tint,
+    },
+  };
+
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen
-          name="tournament/[id]"
-          options={{
-            headerShown: true,
-            title: 'Detalles del Torneo',
-            headerBackTitle: 'Atrás'
-          }}
-        />
-        <Stack.Screen
-          name="team/[id]"
-          options={{
-            headerShown: true,
-            title: 'Detalles del Equipo',
-            headerBackTitle: 'Atrás'
-          }}
-        />
-        <Stack.Screen name="+not-found" />
-      </Stack>
-      <StatusBar style="auto" />
-    </ThemeProvider>
+    <AuthProvider>
+      <ThemeProvider value={customTheme}>
+        <Stack screenOptions={{ headerBackTitle: 'Atrás' }}>
+          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          <Stack.Screen name="+not-found" />
+        </Stack>
+        <StatusBar style="auto" />
+      </ThemeProvider>
+    </AuthProvider>
   );
 }

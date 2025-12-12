@@ -1,13 +1,13 @@
 import { Colors } from '@/constants/Colors';
+import { useAuth } from '@/context/AuthContext';
 import { useColorScheme } from '@/hooks/useColorScheme';
-import { supabase, Team } from '@/lib/supabase';
+import { League, supabase } from '@/lib/supabase';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import { useFocusEffect, useRouter } from 'expo-router';
+import React, { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
-  Image,
   RefreshControl,
   StyleSheet,
   Text,
@@ -15,120 +15,143 @@ import {
   View,
 } from 'react-native';
 
-export default function EquiposScreen() {
-  const [teams, setTeams] = useState<Team[]>([]);
+export default function MisLigasScreen() {
+  const [myLeagues, setMyLeagues] = useState<League[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const router = useRouter();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
+  const { user } = useAuth();
 
-  const fetchTeams = async () => {
+  const fetchMyLeagues = async () => {
+    if (!user) {
+      setLoading(false);
+      return;
+    }
+
     try {
       const { data, error } = await supabase
-        .from('teams')
+        .from('leagues')
         .select('*')
-        .order('name', { ascending: true });
+        .eq('owner_id', user.id)
+        .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setTeams(data || []);
+      setMyLeagues(data || []);
     } catch (error) {
-      console.error('Error fetching teams:', error);
+      console.error('Error fetching my leagues:', error);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
   };
 
-  useEffect(() => {
-    fetchTeams();
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      fetchMyLeagues();
+    }, [user])
+  );
 
   const onRefresh = () => {
     setRefreshing(true);
-    fetchTeams();
+    fetchMyLeagues();
   };
 
-  const getTeamInitials = (name: string) => {
-    return name
-      .split(' ')
-      .map(word => word[0])
-      .join('')
-      .substring(0, 2)
-      .toUpperCase();
-  };
-
-  const getRandomColor = (id: string) => {
-    const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', '#DDA0DD', '#98D8C8'];
-    const index = id.charCodeAt(0) % colors.length;
-    return colors[index];
-  };
-
-  const renderTeam = ({ item }: { item: Team }) => (
-    <TouchableOpacity
-      style={[styles.card, { backgroundColor: colors.background }]}
-      onPress={() => router.push(`/team/${item.id}`)}
-    >
-      <View style={styles.cardContent}>
-        {item.badge_url ? (
-          <Image source={{ uri: item.badge_url }} style={styles.badge} />
-        ) : (
-          <View style={[styles.badgePlaceholder, { backgroundColor: getRandomColor(item.id) }]}>
-            <Text style={styles.badgeText}>{getTeamInitials(item.name)}</Text>
-          </View>
-        )}
-
-        <View style={styles.teamInfo}>
-          <Text style={[styles.teamName, { color: colors.text }]}>
-            {item.name}
-          </Text>
-          {item.short_name && (
-            <Text style={[styles.shortName, { color: colors.icon }]}>
-              ({item.short_name})
-            </Text>
-          )}
-          {item.contact_name && (
-            <View style={styles.contactRow}>
-              <Ionicons name="person-outline" size={14} color={colors.icon} />
-              <Text style={[styles.contactText, { color: colors.icon }]}>
-                {item.contact_name}
-              </Text>
-            </View>
-          )}
-        </View>
-
-        <Ionicons name="chevron-forward" size={24} color={colors.icon} />
+  // Si no está logueado
+  if (!user) {
+    return (
+      <View style={[styles.centered, { backgroundColor: colors.background }]}>
+        <Ionicons name="lock-closed-outline" size={64} color={colors.icon} />
+        <Text style={[styles.emptyTitle, { color: colors.text }]}>
+          Inicia sesión
+        </Text>
+        <Text style={[styles.emptySubtitle, { color: colors.icon }]}>
+          Para ver y gestionar tus ligas
+        </Text>
+        <TouchableOpacity
+          style={[styles.loginButton, { backgroundColor: colors.tint }]}
+          onPress={() => router.push('/perfil')}
+        >
+          <Ionicons name="log-in-outline" size={20} color="white" />
+          <Text style={styles.loginButtonText}>Ir a Perfil</Text>
+        </TouchableOpacity>
       </View>
-    </TouchableOpacity>
-  );
+    );
+  }
 
   if (loading) {
     return (
       <View style={[styles.centered, { backgroundColor: colors.background }]}>
         <ActivityIndicator size="large" color={colors.tint} />
-        <Text style={[styles.loadingText, { color: colors.text }]}>
-          Cargando equipos...
-        </Text>
       </View>
     );
   }
 
+  const renderLeague = ({ item }: { item: League }) => (
+    <TouchableOpacity
+      style={[styles.card, { backgroundColor: colors.card }]}
+      onPress={() => router.push(`/league/${item.id}`)}
+    >
+      <View style={styles.cardContent}>
+        <View style={[styles.iconContainer, { backgroundColor: colors.tint + '20' }]}>
+          <Ionicons name="football" size={24} color={colors.tint} />
+        </View>
+        <View style={styles.cardInfo}>
+          <Text style={[styles.leagueName, { color: colors.text }]} numberOfLines={1}>
+            {item.name}
+          </Text>
+          {item.location && (
+            <Text style={[styles.location, { color: colors.icon }]} numberOfLines={1}>
+              📍 {item.location}
+            </Text>
+          )}
+        </View>
+        <View style={[
+          styles.statusBadge,
+          { backgroundColor: item.is_public ? colors.success + '20' : colors.warning + '20' }
+        ]}>
+          <Text style={[
+            styles.statusText,
+            { color: item.is_public ? colors.success : colors.warning }
+          ]}>
+            {item.is_public ? 'Pública' : 'Privada'}
+          </Text>
+        </View>
+      </View>
+    </TouchableOpacity>
+  );
+
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      {teams.length === 0 ? (
+      <TouchableOpacity
+        style={[styles.fab, { backgroundColor: colors.tint }]}
+        onPress={() => router.push('/league/create')}
+      >
+        <Ionicons name="add" size={28} color="white" />
+      </TouchableOpacity>
+
+      {myLeagues.length === 0 ? (
         <View style={styles.emptyState}>
-          <Ionicons name="people-outline" size={64} color={colors.icon} />
+          <Ionicons name="trophy-outline" size={64} color={colors.icon} />
           <Text style={[styles.emptyTitle, { color: colors.text }]}>
-            No hay equipos registrados
+            No tienes ligas
           </Text>
           <Text style={[styles.emptySubtitle, { color: colors.icon }]}>
-            Los equipos aparecerán aquí cuando se registren
+            Crea tu primera liga de fútbol amateur
           </Text>
+          <TouchableOpacity
+            style={[styles.createButton, { backgroundColor: colors.tint }]}
+            onPress={() => router.push('/league/create')}
+          >
+            <Ionicons name="add" size={20} color="white" />
+            <Text style={styles.createButtonText}>Crear Liga</Text>
+          </TouchableOpacity>
         </View>
       ) : (
         <FlatList
-          data={teams}
-          renderItem={renderTeam}
+          data={myLeagues}
+          renderItem={renderLeague}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.listContainer}
           refreshControl={
@@ -138,7 +161,6 @@ export default function EquiposScreen() {
               tintColor={colors.tint}
             />
           }
-          showsVerticalScrollIndicator={false}
         />
       )}
     </View>
@@ -146,87 +168,69 @@ export default function EquiposScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  centered: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    marginTop: 12,
-    fontSize: 16,
-  },
-  listContainer: {
-    padding: 16,
-  },
+  container: { flex: 1 },
+  centered: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32 },
+  listContainer: { padding: 16, paddingBottom: 100 },
   card: {
-    borderRadius: 12,
+    borderRadius: 14,
     padding: 16,
     marginBottom: 12,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
     shadowRadius: 4,
-    elevation: 3,
+    elevation: 2,
   },
-  cardContent: {
-    flexDirection: 'row',
+  cardContent: { flexDirection: 'row', alignItems: 'center' },
+  iconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    justifyContent: 'center',
     alignItems: 'center',
   },
-  badge: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-  },
-  badgePlaceholder: {
+  cardInfo: { flex: 1, marginLeft: 14 },
+  leagueName: { fontSize: 16, fontWeight: '600' },
+  location: { fontSize: 13, marginTop: 2 },
+  statusBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
+  statusText: { fontSize: 11, fontWeight: '600' },
+  fab: {
+    position: 'absolute',
+    bottom: 24,
+    right: 24,
     width: 56,
     height: 56,
     borderRadius: 28,
     justifyContent: 'center',
     alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 8,
+    zIndex: 100,
   },
-  badgeText: {
-    color: 'white',
-    fontSize: 20,
-    fontWeight: '700',
-  },
-  teamInfo: {
-    flex: 1,
-    marginLeft: 16,
-  },
-  teamName: {
-    fontSize: 18,
-    fontWeight: '600',
-  },
-  shortName: {
-    fontSize: 14,
-    marginTop: 2,
-  },
-  contactRow: {
+  emptyState: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32 },
+  emptyTitle: { fontSize: 20, fontWeight: '700', marginTop: 16 },
+  emptySubtitle: { fontSize: 15, textAlign: 'center', marginTop: 8 },
+  createButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 4,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 12,
+    marginTop: 24,
+    gap: 8,
   },
-  contactText: {
-    fontSize: 13,
-    marginLeft: 4,
-  },
-  emptyState: {
-    flex: 1,
-    justifyContent: 'center',
+  createButtonText: { color: 'white', fontSize: 16, fontWeight: '600' },
+  loginButton: {
+    flexDirection: 'row',
     alignItems: 'center',
-    padding: 32,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 12,
+    marginTop: 24,
+    gap: 8,
   },
-  emptyTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    marginTop: 16,
-  },
-  emptySubtitle: {
-    fontSize: 16,
-    textAlign: 'center',
-    marginTop: 8,
-  },
+  loginButtonText: { color: 'white', fontSize: 16, fontWeight: '600' },
 });

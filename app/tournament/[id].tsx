@@ -24,7 +24,7 @@ export default function TournamentDetailScreen() {
   const [matches, setMatches] = useState<MatchWithTeams[]>([]);
   const [standings, setStandings] = useState<Standing[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'partidos' | 'posiciones'>('posiciones');
+  const [activeTab, setActiveTab] = useState<'posiciones' | 'partidos'>('posiciones');
   const router = useRouter();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
@@ -35,7 +35,6 @@ export default function TournamentDetailScreen() {
 
   const fetchTournamentData = async () => {
     try {
-      // Fetch tournament
       const { data: tournamentData, error: tournamentError } = await supabase
         .from('tournaments')
         .select('*, leagues(*)')
@@ -45,7 +44,6 @@ export default function TournamentDetailScreen() {
       if (tournamentError) throw tournamentError;
       setTournament(tournamentData);
 
-      // Fetch matches
       const { data: matchesData, error: matchesError } = await supabase
         .from('matches')
         .select(`
@@ -59,7 +57,6 @@ export default function TournamentDetailScreen() {
       if (matchesError) throw matchesError;
       setMatches(matchesData || []);
 
-      // Fetch standings
       const { data: standingsData, error: standingsError } = await supabase
         .from('standings')
         .select('*')
@@ -78,11 +75,11 @@ export default function TournamentDetailScreen() {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'finalizado': return '#4CAF50';
-      case 'en_curso': return '#FF9800';
-      case 'programado': return '#2196F3';
-      case 'cancelado': return '#F44336';
-      default: return '#9E9E9E';
+      case 'finalizado': return colors.success;
+      case 'en_curso': return colors.warning;
+      case 'programado': return colors.tint;
+      case 'cancelado': return colors.error;
+      default: return colors.icon;
     }
   };
 
@@ -107,7 +104,10 @@ export default function TournamentDetailScreen() {
   if (!tournament) {
     return (
       <View style={[styles.centered, { backgroundColor: colors.background }]}>
-        <Text style={{ color: colors.text }}>Torneo no encontrado</Text>
+        <Ionicons name="alert-circle-outline" size={48} color={colors.icon} />
+        <Text style={[styles.errorText, { color: colors.text }]}>
+          Torneo no encontrado
+        </Text>
       </View>
     );
   }
@@ -129,18 +129,31 @@ export default function TournamentDetailScreen() {
               </Text>
             </View>
           )}
+          {tournament.leagues?.location && (
+            <View style={styles.headerDetail}>
+              <Ionicons name="location" size={16} color="white" />
+              <Text style={styles.headerDetailText}>
+                {tournament.leagues.location}
+              </Text>
+            </View>
+          )}
         </View>
       </View>
 
       {/* Tabs */}
-      <View style={styles.tabsContainer}>
+      <View style={[styles.tabsContainer, { backgroundColor: colors.card }]}>
         <TouchableOpacity
           style={[
             styles.tab,
-            activeTab === 'posiciones' && { borderBottomColor: colors.tint, borderBottomWidth: 2 }
+            activeTab === 'posiciones' && { backgroundColor: colors.tint + '15' }
           ]}
           onPress={() => setActiveTab('posiciones')}
         >
+          <Ionicons
+            name="podium"
+            size={18}
+            color={activeTab === 'posiciones' ? colors.tint : colors.icon}
+          />
           <Text style={[
             styles.tabText,
             { color: activeTab === 'posiciones' ? colors.tint : colors.icon }
@@ -151,10 +164,15 @@ export default function TournamentDetailScreen() {
         <TouchableOpacity
           style={[
             styles.tab,
-            activeTab === 'partidos' && { borderBottomColor: colors.tint, borderBottomWidth: 2 }
+            activeTab === 'partidos' && { backgroundColor: colors.tint + '15' }
           ]}
           onPress={() => setActiveTab('partidos')}
         >
+          <Ionicons
+            name="football"
+            size={18}
+            color={activeTab === 'partidos' ? colors.tint : colors.icon}
+          />
           <Text style={[
             styles.tabText,
             { color: activeTab === 'partidos' ? colors.tint : colors.icon }
@@ -165,17 +183,17 @@ export default function TournamentDetailScreen() {
       </View>
 
       {/* Content */}
-      {activeTab === 'posiciones' ? (
-        <View style={styles.content}>
-          {standings.length === 0 ? (
-            <View style={styles.emptyState}>
+      <View style={styles.content}>
+        {activeTab === 'posiciones' ? (
+          standings.length === 0 ? (
+            <View style={[styles.emptyCard, { backgroundColor: colors.card }]}>
               <Ionicons name="podium-outline" size={48} color={colors.icon} />
               <Text style={[styles.emptyText, { color: colors.icon }]}>
                 No hay posiciones disponibles
               </Text>
             </View>
           ) : (
-            <View style={[styles.standingsTable, { backgroundColor: colors.background }]}>
+            <View style={[styles.standingsTable, { backgroundColor: colors.card }]}>
               {/* Table Header */}
               <View style={[styles.tableHeader, { backgroundColor: colors.tint }]}>
                 <Text style={[styles.tableHeaderCell, styles.posCell]}>#</Text>
@@ -185,7 +203,7 @@ export default function TournamentDetailScreen() {
                 <Text style={[styles.tableHeaderCell, styles.statCell]}>E</Text>
                 <Text style={[styles.tableHeaderCell, styles.statCell]}>P</Text>
                 <Text style={[styles.tableHeaderCell, styles.statCell]}>DG</Text>
-                <Text style={[styles.tableHeaderCell, styles.statCell, styles.ptsCell]}>Pts</Text>
+                <Text style={[styles.tableHeaderCell, styles.ptsCell]}>Pts</Text>
               </View>
 
               {standings.map((standing, index) => (
@@ -193,14 +211,22 @@ export default function TournamentDetailScreen() {
                   key={standing.team_id}
                   style={[
                     styles.tableRow,
-                    { borderBottomColor: colors.icon + '20' },
-                    index < 3 && styles.topPosition
+                    { borderBottomColor: colors.border },
+                    index < 3 && { backgroundColor: colors.success + '10' }
                   ]}
                   onPress={() => router.push(`/team/${standing.team_id}`)}
                 >
-                  <Text style={[styles.tableCell, styles.posCell, { color: colors.text }]}>
-                    {index + 1}
-                  </Text>
+                  <View style={[
+                    styles.positionBadge,
+                    { backgroundColor: index < 3 ? colors.success : colors.icon + '30' }
+                  ]}>
+                    <Text style={[
+                      styles.positionNumber,
+                      { color: index < 3 ? 'white' : colors.text }
+                    ]}>
+                      {index + 1}
+                    </Text>
+                  </View>
                   <Text
                     style={[styles.tableCell, styles.teamCell, { color: colors.text }]}
                     numberOfLines={1}
@@ -222,18 +248,16 @@ export default function TournamentDetailScreen() {
                   <Text style={[styles.tableCell, styles.statCell, { color: colors.icon }]}>
                     {standing.goal_diff || 0}
                   </Text>
-                  <Text style={[styles.tableCell, styles.statCell, styles.ptsCell, { color: colors.text, fontWeight: '700' }]}>
+                  <Text style={[styles.tableCell, styles.ptsCell, { color: colors.text, fontWeight: '700' }]}>
                     {standing.points || 0}
                   </Text>
                 </TouchableOpacity>
               ))}
             </View>
-          )}
-        </View>
-      ) : (
-        <View style={styles.content}>
-          {matches.length === 0 ? (
-            <View style={styles.emptyState}>
+          )
+        ) : (
+          matches.length === 0 ? (
+            <View style={[styles.emptyCard, { backgroundColor: colors.card }]}>
               <Ionicons name="football-outline" size={48} color={colors.icon} />
               <Text style={[styles.emptyText, { color: colors.icon }]}>
                 No hay partidos programados
@@ -243,23 +267,28 @@ export default function TournamentDetailScreen() {
             matches.map((match) => (
               <View
                 key={match.id}
-                style={[styles.matchCard, { backgroundColor: colors.background }]}
+                style={[styles.matchCard, { backgroundColor: colors.card }]}
               >
                 {match.round_number && (
-                  <Text style={[styles.roundNumber, { color: colors.icon }]}>
-                    Fecha {match.round_number}
-                  </Text>
+                  <View style={[styles.roundBadge, { backgroundColor: colors.tint + '15' }]}>
+                    <Text style={[styles.roundText, { color: colors.tint }]}>
+                      Fecha {match.round_number}
+                    </Text>
+                  </View>
                 )}
 
                 <View style={styles.matchContent}>
-                  <View style={styles.teamContainer}>
+                  <TouchableOpacity
+                    style={styles.teamContainer}
+                    onPress={() => router.push(`/team/${match.home_team_id}`)}
+                  >
                     <Text
                       style={[styles.matchTeamName, { color: colors.text }]}
                       numberOfLines={2}
                     >
                       {match.home_team?.name || 'Local'}
                     </Text>
-                  </View>
+                  </TouchableOpacity>
 
                   <View style={styles.scoreContainer}>
                     {match.status === 'finalizado' || match.status === 'en_curso' ? (
@@ -273,38 +302,56 @@ export default function TournamentDetailScreen() {
                         </Text>
                       </View>
                     ) : (
-                      <Text style={[styles.matchTime, { color: colors.icon }]}>
-                        VS
-                      </Text>
+                      <Text style={[styles.vsText, { color: colors.icon }]}>VS</Text>
                     )}
                     <View style={[styles.statusBadge, { backgroundColor: getStatusColor(match.status) }]}>
                       <Text style={styles.statusText}>{getStatusText(match.status)}</Text>
                     </View>
                   </View>
 
-                  <View style={styles.teamContainer}>
+                  <TouchableOpacity
+                    style={styles.teamContainer}
+                    onPress={() => router.push(`/team/${match.away_team_id}`)}
+                  >
                     <Text
                       style={[styles.matchTeamName, { color: colors.text }]}
                       numberOfLines={2}
                     >
                       {match.away_team?.name || 'Visitante'}
                     </Text>
-                  </View>
+                  </TouchableOpacity>
                 </View>
 
-                {match.location && (
-                  <View style={styles.matchFooter}>
-                    <Ionicons name="location-outline" size={14} color={colors.icon} />
-                    <Text style={[styles.matchLocation, { color: colors.icon }]}>
-                      {match.location}
-                    </Text>
+                {(match.location || match.start_time) && (
+                  <View style={[styles.matchFooter, { borderTopColor: colors.border }]}>
+                    {match.location && (
+                      <View style={styles.matchDetail}>
+                        <Ionicons name="location-outline" size={14} color={colors.icon} />
+                        <Text style={[styles.matchDetailText, { color: colors.icon }]}>
+                          {match.location}
+                        </Text>
+                      </View>
+                    )}
+                    {match.start_time && (
+                      <View style={styles.matchDetail}>
+                        <Ionicons name="time-outline" size={14} color={colors.icon} />
+                        <Text style={[styles.matchDetailText, { color: colors.icon }]}>
+                          {new Date(match.start_time).toLocaleDateString('es-ES', {
+                            day: 'numeric',
+                            month: 'short',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
+                        </Text>
+                      </View>
+                    )}
                   </View>
                 )}
               </View>
             ))
-          )}
-        </View>
-      )}
+          )
+        )}
+      </View>
     </ScrollView>
   );
 }
@@ -318,71 +365,98 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  errorText: {
+    fontSize: 16,
+    marginTop: 12,
+  },
   header: {
     padding: 24,
-    paddingTop: 16,
+    paddingTop: 20,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
   },
   tournamentName: {
-    fontSize: 28,
+    fontSize: 26,
     fontWeight: '700',
     color: 'white',
   },
   leagueName: {
-    fontSize: 16,
+    fontSize: 15,
     color: 'rgba(255,255,255,0.8)',
     marginTop: 4,
   },
   headerDetails: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     marginTop: 16,
+    gap: 16,
   },
   headerDetail: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 6,
   },
   headerDetailText: {
     color: 'white',
-    marginLeft: 6,
     fontSize: 14,
   },
   tabsContainer: {
     flexDirection: 'row',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E0E0E0',
-  },
-  tab: {
-    flex: 1,
-    paddingVertical: 16,
-    alignItems: 'center',
-  },
-  tabText: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  content: {
-    padding: 16,
-  },
-  emptyState: {
-    alignItems: 'center',
-    paddingVertical: 48,
-  },
-  emptyText: {
-    fontSize: 16,
-    marginTop: 12,
-  },
-  standingsTable: {
+    marginHorizontal: 16,
+    marginTop: -20,
     borderRadius: 12,
-    overflow: 'hidden',
+    padding: 4,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
   },
+  tab: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    borderRadius: 10,
+    gap: 6,
+  },
+  tabText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  content: {
+    padding: 16,
+    paddingTop: 20,
+  },
+  emptyCard: {
+    borderRadius: 16,
+    padding: 48,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  emptyText: {
+    fontSize: 15,
+    marginTop: 12,
+  },
+  standingsTable: {
+    borderRadius: 16,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 3,
+  },
   tableHeader: {
     flexDirection: 'row',
-    paddingVertical: 12,
-    paddingHorizontal: 8,
+    alignItems: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 12,
   },
   tableHeaderCell: {
     color: 'white',
@@ -392,12 +466,10 @@ const styles = StyleSheet.create({
   },
   tableRow: {
     flexDirection: 'row',
-    paddingVertical: 12,
-    paddingHorizontal: 8,
+    alignItems: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 12,
     borderBottomWidth: 1,
-  },
-  topPosition: {
-    backgroundColor: 'rgba(76, 175, 80, 0.1)',
   },
   tableCell: {
     fontSize: 13,
@@ -406,32 +478,48 @@ const styles = StyleSheet.create({
   posCell: {
     width: 28,
   },
+  positionBadge: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  positionNumber: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
   teamCell: {
     flex: 1,
     textAlign: 'left',
-    paddingLeft: 8,
+    paddingLeft: 10,
   },
   statCell: {
-    width: 32,
+    width: 28,
   },
   ptsCell: {
-    width: 36,
+    width: 32,
   },
   matchCard: {
-    borderRadius: 12,
+    borderRadius: 16,
     padding: 16,
     marginBottom: 12,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
     shadowRadius: 4,
-    elevation: 3,
+    elevation: 2,
   },
-  roundNumber: {
+  roundBadge: {
+    alignSelf: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginBottom: 14,
+  },
+  roundText: {
     fontSize: 12,
     fontWeight: '600',
-    textAlign: 'center',
-    marginBottom: 12,
   },
   matchContent: {
     flexDirection: 'row',
@@ -440,6 +528,7 @@ const styles = StyleSheet.create({
   teamContainer: {
     flex: 1,
     alignItems: 'center',
+    paddingHorizontal: 4,
   },
   matchTeamName: {
     fontSize: 14,
@@ -448,7 +537,7 @@ const styles = StyleSheet.create({
   },
   scoreContainer: {
     alignItems: 'center',
-    paddingHorizontal: 16,
+    paddingHorizontal: 12,
   },
   score: {
     flexDirection: 'row',
@@ -462,15 +551,16 @@ const styles = StyleSheet.create({
     fontSize: 20,
     marginHorizontal: 8,
   },
-  matchTime: {
+  vsText: {
     fontSize: 16,
     fontWeight: '600',
+    marginBottom: 4,
   },
   statusBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 4,
-    marginTop: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 6,
+    marginTop: 6,
   },
   statusText: {
     color: 'white',
@@ -479,15 +569,19 @@ const styles = StyleSheet.create({
   },
   matchFooter: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 12,
-    paddingTop: 12,
+    flexWrap: 'wrap',
+    marginTop: 14,
+    paddingTop: 14,
     borderTopWidth: 1,
-    borderTopColor: '#E0E0E0',
+    gap: 16,
   },
-  matchLocation: {
+  matchDetail: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  matchDetailText: {
     fontSize: 12,
-    marginLeft: 4,
   },
 });
